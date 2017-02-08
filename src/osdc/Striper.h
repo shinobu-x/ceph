@@ -28,25 +28,35 @@ class CephContext;
      * map (ino, layout, offset, len) to a (list of) ObjectExtents (byte
      * ranges in objects on (primary) osds)
      */
-    static void file_to_extents(CephContext *cct, const char *object_format,
-				const file_layout_t *layout,
-				uint64_t offset, uint64_t len,
-				uint64_t trunc_size,
-				map<object_t, vector<ObjectExtent> >& extents,
-				uint64_t buffer_offset=0);
+    static void file_to_extents(
+      CephContext *cct,
+      const char *object_format,
+      const file_layout_t *layout,
+      uint64_t offset,
+      uint64_t len,
+      uint64_t trunc_size,
+      map<object_t,
+      vector<ObjectExtent> >& extents,
+      uint64_t buffer_offset=0);
 
-    static void file_to_extents(CephContext *cct, const char *object_format,
-				const file_layout_t *layout,
-				uint64_t offset, uint64_t len,
-				uint64_t trunc_size,
-				vector<ObjectExtent>& extents,
-				uint64_t buffer_offset=0);
+    static void file_to_extents(
+      CephContext *cct,
+      const char *object_format,
+      const file_layout_t *layout,
+      uint64_t offset, uint64_t len,
+      uint64_t trunc_size,
+      vector<ObjectExtent>& extents,
+      uint64_t buffer_offset=0);
 
-    static void file_to_extents(CephContext *cct, inodeno_t ino,
-				const file_layout_t *layout,
-				uint64_t offset, uint64_t len,
-				uint64_t trunc_size,
-				vector<ObjectExtent>& extents) {
+    static void file_to_extents(
+      CephContext *cct,
+      inodeno_t ino,
+      const file_layout_t *layout,
+      uint64_t offset,
+      uint64_t len,
+      uint64_t trunc_size,
+      vector<ObjectExtent>& extents)
+    {
       // generate prefix/format
       char buf[32];
       snprintf(buf, sizeof(buf), "%llx.%%08llx", (long long unsigned)ino);
@@ -61,13 +71,19 @@ class CephContext;
     /**
      * reverse map an object extent to file extents
      */
-    static void extent_to_file(CephContext *cct, file_layout_t *layout,
-			       uint64_t objectno, uint64_t off, uint64_t len,
-			       vector<pair<uint64_t, uint64_t> >& extents);
+    static void extent_to_file(
+      CephContext *cct,
+      file_layout_t *layout,
+      uint64_t objectno,
+      uint64_t off,
+      uint64_t len,
+      vector<pair<uint64_t, uint64_t> >& extents);
 
     static uint64_t object_truncate_size(
-      CephContext *cct, const file_layout_t *layout,
-      uint64_t objectno, uint64_t trunc_size);
+      CephContext *cct,
+      const file_layout_t *layout,
+      uint64_t objectno,
+      uint64_t trunc_size);
 
     static uint64_t get_num_objects(const file_layout_t& layout,
 				    uint64_t size);
@@ -81,7 +97,8 @@ class CephContext;
 
     public:
       void add_partial_result(
-	CephContext *cct, bufferlist& bl,
+	CephContext *cct,
+        bufferlist& bl,
 	const vector<pair<uint64_t,uint64_t> >& buffer_extents);
       /**
        * add sparse read into results
@@ -93,17 +110,24 @@ class CephContext;
        * @param buffer_extents output buffer extents the data maps to
        */
       void add_partial_sparse_result(
-	CephContext *cct, bufferlist& bl,
-	const map<uint64_t, uint64_t>& bl_map, uint64_t bl_off,
+	CephContext *cct,
+        bufferlist& bl,
+	const map<uint64_t, uint64_t>& bl_map,
+        uint64_t bl_off,
 	const vector<pair<uint64_t,uint64_t> >& buffer_extents);
 
-      void assemble_result(CephContext *cct, bufferlist& bl, bool zero_tail);
+      void assemble_result(
+        CephContext *cct,
+        bufferlist& bl,
+        bool zero_tail);
 
       /**
        * @buffer copy read data into buffer
        * @len the length of buffer
        */
-      void assemble_result(CephContext *cct, char *buffer, size_t len);
+      void assemble_result(CephContext *cct,
+      char *buffer,
+      size_t len);
     };
 
   };
