@@ -167,7 +167,7 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
     atomic_t nref;
 
     mutable simple_spinlock_t crc_spinlock;
-    map<pair<size_t, size_t>, pair<uint32_t, uint32_t> > crc_map;
+    std::map<std::pair<size_t, size_t>, std::pair<uint32_t, uint32_t> > crc_map;
 
     explicit raw(unsigned l)
       : data(NULL), len(l), nref(0),
@@ -211,10 +211,10 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
       // and/or registered memory that is scarce
       return true;
     }
-    bool get_crc(const pair<size_t, size_t> &fromto,
-         pair<uint32_t, uint32_t> *crc) const {
+    bool get_crc(const std::pair<size_t, size_t> &fromto,
+         std::pair<uint32_t, uint32_t> *crc) const {
       simple_spin_lock(&crc_spinlock);
-      map<pair<size_t, size_t>, pair<uint32_t, uint32_t> >::const_iterator i =
+      std::map<std::pair<size_t, size_t>, std::pair<uint32_t, uint32_t> >::const_iterator i =
       crc_map.find(fromto);
       if (i == crc_map.end()) {
           simple_spin_unlock(&crc_spinlock);
@@ -224,8 +224,8 @@ static simple_spinlock_t buffer_debug_lock = SIMPLE_SPINLOCK_INITIALIZER;
       simple_spin_unlock(&crc_spinlock);
       return true;
     }
-    void set_crc(const pair<size_t, size_t> &fromto,
-         const pair<uint32_t, uint32_t> &crc) {
+    void set_crc(const std::pair<size_t, size_t> &fromto,
+         const std::pair<uint32_t, uint32_t> &crc) {
       simple_spin_lock(&crc_spinlock);
       crc_map[fromto] = crc;
       simple_spin_unlock(&crc_spinlock);
@@ -2382,8 +2382,8 @@ __u32 buffer::list::crc32c(__u32 crc) const
        ++it) {
     if (it->length()) {
       raw *r = it->get_raw();
-      pair<size_t, size_t> ofs(it->offset(), it->offset() + it->length());
-      pair<uint32_t, uint32_t> ccrc;
+      std::pair<size_t, size_t> ofs(it->offset(), it->offset() + it->length());
+      std::pair<uint32_t, uint32_t> ccrc;
       if (r->get_crc(ofs, &ccrc)) {
 	if (ccrc.first == crc) {
 	  // got it already

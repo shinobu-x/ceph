@@ -8,7 +8,7 @@
 #include "cls_statelog_types.h"
 
 struct cls_statelog_add_op {
-  list<cls_statelog_entry> entries;
+  std::list<cls_statelog_entry> entries;
 
   cls_statelog_add_op() {}
 
@@ -27,10 +27,10 @@ struct cls_statelog_add_op {
 WRITE_CLASS_ENCODER(cls_statelog_add_op)
 
 struct cls_statelog_list_op {
-  string object;
-  string client_id;
-  string op_id;
-  string marker; /* if not empty, overrides from_time */
+  std::string object;
+  std::string client_id;
+  std::string op_id;
+  std::string marker; /* if not empty, overrides from_time */
   int max_entries; /* upperbound to returned num of entries
                       might return less than that and still be truncated */
 
@@ -59,8 +59,8 @@ struct cls_statelog_list_op {
 WRITE_CLASS_ENCODER(cls_statelog_list_op)
 
 struct cls_statelog_list_ret {
-  list<cls_statelog_entry> entries;
-  string marker;
+  std::list<cls_statelog_entry> entries;
+  std::string marker;
   bool truncated;
 
   cls_statelog_list_ret() : truncated(false) {}
@@ -89,9 +89,9 @@ WRITE_CLASS_ENCODER(cls_statelog_list_ret)
  * -ENODATA when done, so caller needs to repeat sending request until that.
  */
 struct cls_statelog_remove_op {
-  string client_id;
-  string op_id;
-  string object;
+  std::string client_id;
+  std::string op_id;
+  std::string object;
 
   cls_statelog_remove_op() {}
 
@@ -114,9 +114,9 @@ struct cls_statelog_remove_op {
 WRITE_CLASS_ENCODER(cls_statelog_remove_op)
 
 struct cls_statelog_check_state_op {
-  string client_id;
-  string op_id;
-  string object;
+  std::string client_id;
+  std::string op_id;
+  std::string object;
   uint32_t state;
 
   cls_statelog_check_state_op() : state(0) {}

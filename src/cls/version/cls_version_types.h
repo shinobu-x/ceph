@@ -9,7 +9,7 @@ class JSONObj;
 
 struct obj_version {
   uint64_t ver;
-  string tag;
+  std::string tag;
 
   obj_version() : ver(0) {}
 
@@ -82,5 +82,3 @@ WRITE_CLASS_ENCODER(obj_version_cond)
 
 
 #endif
-
-

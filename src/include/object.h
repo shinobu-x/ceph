@@ -20,7 +20,6 @@
 
 #include <iosfwd>
 #include <iomanip>
-using namespace std;
 
 #include "include/unordered_map.h"
 
@@ -30,13 +29,13 @@ using namespace std;
 #include "cmp.h"
 
 struct object_t {
-  string name;
+  std::string name;
 
   object_t() {}
   // cppcheck-suppress noExplicitConstructor
   object_t(const char *s) : name(s) {}
   // cppcheck-suppress noExplicitConstructor
-  object_t(const string& s) : name(s) {}
+  object_t(const std::string& s) : name(s) {}
 
   void swap(object_t& o) {
     name.swap(o.name);
@@ -72,7 +71,7 @@ inline bool operator>=(const object_t& l, const object_t& r) {
 inline bool operator<=(const object_t& l, const object_t& r) {
   return l.name <= r.name;
 }
-inline ostream& operator<<(ostream& out, const object_t& o) {
+inline std::ostream& operator<<(std::ostream& out, const object_t& o) {
   return out << o.name;
 }
 
@@ -138,13 +137,13 @@ struct denc_traits<snapid_t> {
   }
 };
 
-inline ostream& operator<<(ostream& out, snapid_t s) {
+inline std::ostream& operator<<(std::ostream& out, snapid_t s) {
   if (s == CEPH_NOSNAP)
     return out << "head";
   else if (s == CEPH_SNAPDIR)
     return out << "snapdir";
   else
-    return out << hex << s.val << dec;
+    return out << std::hex << s.val << std::dec;
 }
 
 
@@ -191,7 +190,7 @@ inline bool operator>=(const sobject_t &l, const sobject_t &r) {
 inline bool operator<=(const sobject_t &l, const sobject_t &r) {
   return l.oid < r.oid || (l.oid == r.oid && l.snap <= r.snap);
 }
-inline ostream& operator<<(ostream& out, const sobject_t &o) {
+inline std::ostream& operator<<(std::ostream& out, const sobject_t &o) {
   return out << o.oid << "/" << o.snap;
 }
 namespace std {

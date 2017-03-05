@@ -21,12 +21,11 @@
 
 #include "json_spirit/json_spirit.h"
 
-using namespace std;
 
 int get_json_str_map(
-    const string &str,
-    ostream &ss,
-    map<string,string> *str_map,
+    const std::string &str,
+    std::ostream &ss,
+    std::map<std::string, std::string> *str_map,
     bool fallback_to_plain)
 {
   json_spirit::mValue json;
@@ -43,7 +42,7 @@ int get_json_str_map(
 
     json_spirit::mObject o = json.get_obj();
 
-    for (map<string, json_spirit::mValue>::iterator i = o.begin();
+    for (std::map<std::string, json_spirit::mValue>::iterator i = o.begin();
 	 i != o.end();
 	 ++i) {
       (*str_map)[i->first] = i->second.get_str();
@@ -58,7 +57,7 @@ int get_json_str_map(
   }
   return 0;
 }
-string trim(const string& str) {
+std::string trim(const std::string& str) {
   size_t start = 0;
   size_t end = str.size() - 1;
   while (isspace(str[start]) != 0 && start <= end) {
@@ -70,36 +69,37 @@ string trim(const string& str) {
   if (start <= end) {
     return str.substr(start, end - start + 1);
   }
-  return string();
+  return std::string();
 }
 
 int get_str_map(
-    const string &str,
-    map<string,string> *str_map,
+    const std::string &str,
+    std::map<std::string, std::string> *str_map,
     const char *delims)
 {
-  list<string> pairs;
+  std::list<std::string> pairs;
   get_str_list(str, delims, pairs);
-  for (list<string>::iterator i = pairs.begin(); i != pairs.end(); ++i) {
+  for (std::list<std::string>::iterator i = pairs.begin(); 
+       i != pairs.end(); ++i) {
     size_t equal = i->find('=');
-    if (equal == string::npos)
-      (*str_map)[*i] = string();
+    if (equal == std::string::npos)
+      (*str_map)[*i] = std::string();
     else {
-      const string key = trim(i->substr(0, equal));
+      const std::string key = trim(i->substr(0, equal));
       equal++;
-      const string value = trim(i->substr(equal));
+      const std::string value = trim(i->substr(equal));
       (*str_map)[key] = value;
     }
   }
   return 0;
 }
 
-string get_str_map_value(
-    const map<string,string> &str_map,
-    const string &key,
-    const string *def_val)
+std::string get_str_map_value(
+    const std::map<std::string, std::string> &str_map,
+    const std::string &key,
+    const std::string *def_val)
 {
-  map<string,string>::const_iterator p = str_map.find(key);
+  std::map<std::string, std::string>::const_iterator p = str_map.find(key);
 
   // key exists in str_map
   if (p != str_map.end()) {
@@ -115,15 +115,15 @@ string get_str_map_value(
     return *def_val;
 
   // key DNE in str_map, no def_val was specified
-  return string();
+  return std::string();
 }
 
-string get_str_map_key(
-    const map<string,string> &str_map,
-    const string &key,
-    const string *fallback_key)
+std::string get_str_map_key(
+    const std::map<std::string, std::string> &str_map,
+    const std::string &key,
+    const std::string *fallback_key)
 {
-  map<string,string>::const_iterator p = str_map.find(key);
+  std::map<std::string, std::string>::const_iterator p = str_map.find(key);
   if (p != str_map.end())
     return p->second;
 
@@ -132,7 +132,7 @@ string get_str_map_key(
     if (p != str_map.end())
       return p->second;
   }
-  return string();
+  return std::string();
 }
 
 // This function's only purpose is to check whether a given map has only
@@ -142,10 +142,10 @@ string get_str_map_key(
 // with a map of the form "m = { 'def_key' : 'VALUE' }" instead of the
 // original "m = { 'VALUE' : '' }".
 int get_conf_str_map_helper(
-    const string &str,
-    ostringstream &oss,
-    map<string,string> *m,
-    const string &def_key)
+    const std::string &str,
+    std::ostringstream &oss,
+    std::map<std::string, std::string> *m,
+    const std::string &def_key)
 {
   int r = get_str_map(str, m);
 
@@ -154,9 +154,9 @@ int get_conf_str_map_helper(
   }
 
   if (r >= 0 && m->size() == 1) {
-    map<string,string>::iterator p = m->begin();
+    std::map<std::string, std::string>::iterator p = m->begin();
     if (p->second.empty()) {
-      string s = p->first;
+      std::string s = p->first;
       m->erase(s);
       (*m)[def_key] = s;
     }

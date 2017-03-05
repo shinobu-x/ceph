@@ -1,3 +1,6 @@
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// vim: ts=8 sw=2 smarttab
+
 #include <errno.h>
 
 #include "include/types.h"
@@ -81,7 +84,7 @@ void cls_version_read(librados::ObjectReadOperation& op, obj_version *objv)
   op.exec("version", "read", inbl, new VersionReadCtx(objv));
 }
 
-int cls_version_read(librados::IoCtx& io_ctx, string& oid, obj_version *ver)
+int cls_version_read(librados::IoCtx& io_ctx, std::string& oid, obj_version *ver)
 {
   bufferlist in, out;
   int r = io_ctx.exec(oid, "version", "read", in, out);

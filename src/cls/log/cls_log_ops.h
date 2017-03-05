@@ -8,7 +8,7 @@
 #include "cls_log_types.h"
 
 struct cls_log_add_op {
-  list<cls_log_entry> entries;
+  std::list<cls_log_entry> entries;
   bool monotonic_inc;
 
   cls_log_add_op() : monotonic_inc(true) {}
@@ -33,7 +33,7 @@ WRITE_CLASS_ENCODER(cls_log_add_op)
 
 struct cls_log_list_op {
   utime_t from_time;
-  string marker; /* if not empty, overrides from_time */
+  std::string marker; /* if not empty, overrides from_time */
   utime_t to_time; /* not inclusive */
   int max_entries; /* upperbound to returned num of entries
                       might return less than that and still be truncated */
@@ -61,8 +61,8 @@ struct cls_log_list_op {
 WRITE_CLASS_ENCODER(cls_log_list_op)
 
 struct cls_log_list_ret {
-  list<cls_log_entry> entries;
-  string marker;
+  std::list<cls_log_entry> entries;
+  std::string marker;
   bool truncated;
 
   cls_log_list_ret() : truncated(false) {}
@@ -93,8 +93,8 @@ WRITE_CLASS_ENCODER(cls_log_list_ret)
 struct cls_log_trim_op {
   utime_t from_time;
   utime_t to_time; /* inclusive */
-  string from_marker;
-  string to_marker;
+  std::string from_marker;
+  std::string to_marker;
 
   cls_log_trim_op() {}
 

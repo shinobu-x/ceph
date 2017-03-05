@@ -19,7 +19,6 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "osd/OSD.h"
 #include "os/ObjectStore.h"

@@ -1,3 +1,6 @@
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// vim: ts=8 sw=2 smarttab
+
 #ifndef CEPH_CLS_LOG_TYPES_H
 #define CEPH_CLS_LOG_TYPES_H
 
@@ -10,9 +13,9 @@ class JSONObj;
 
 
 struct cls_log_entry {
-  string id;
-  string section;
-  string name;
+  std::string id;
+  std::string section;
+  std::string name;
   utime_t timestamp;
   bufferlist data;
 
@@ -42,7 +45,7 @@ struct cls_log_entry {
 WRITE_CLASS_ENCODER(cls_log_entry)
 
 struct cls_log_header {
-  string max_marker;
+  std::string max_marker;
   utime_t max_time;
 
   void encode(bufferlist& bl) const {

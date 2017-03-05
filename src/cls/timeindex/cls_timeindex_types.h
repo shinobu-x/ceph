@@ -16,7 +16,7 @@ struct cls_timeindex_entry {
   utime_t key_ts;
   /* Not mandatory. The name_ext field, if not empty, will form second
    * part of the key. */
-  string key_ext;
+  std::string key_ext;
   /* Become value of OMAP-based mapping. */
   bufferlist value;
 

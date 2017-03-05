@@ -1,3 +1,6 @@
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// vim: ts=8 sw=2 smarttab
+
 #include <errno.h>
 
 #include "include/types.h"
@@ -8,7 +11,7 @@
 using namespace librados;
 
 
-void cls_statelog_add(librados::ObjectWriteOperation& op, list<cls_statelog_entry>& entries)
+void cls_statelog_add(librados::ObjectWriteOperation& op, std::list<cls_statelog_entry>& entries)
 {
   bufferlist in;
   cls_statelog_add_op call;
@@ -26,8 +29,8 @@ void cls_statelog_add(librados::ObjectWriteOperation& op, cls_statelog_entry& en
   op.exec("statelog", "add", in);
 }
 
-void cls_statelog_add_prepare_entry(cls_statelog_entry& entry, const string& client_id, const string& op_id,
-                 const string& object, const utime_t& timestamp, uint32_t state, bufferlist& bl)
+void cls_statelog_add_prepare_entry(cls_statelog_entry& entry, const std::string& client_id, const std::string& op_id,
+                 const std::string& object, const utime_t& timestamp, uint32_t state, bufferlist& bl)
 {
   entry.client_id = client_id;
   entry.op_id = op_id;
@@ -37,8 +40,8 @@ void cls_statelog_add_prepare_entry(cls_statelog_entry& entry, const string& cli
   entry.data = bl;
 }
 
-void cls_statelog_add(librados::ObjectWriteOperation& op, const string& client_id, const string& op_id,
-                 const string& object, const utime_t& timestamp, uint32_t state, bufferlist& bl)
+void cls_statelog_add(librados::ObjectWriteOperation& op, const std::string& client_id, const std::string& op_id,
+                 const std::string& object, const utime_t& timestamp, uint32_t state, bufferlist& bl)
 
 {
   cls_statelog_entry entry;
@@ -47,7 +50,7 @@ void cls_statelog_add(librados::ObjectWriteOperation& op, const string& client_i
   cls_statelog_add(op, entry);
 }
 
-void cls_statelog_remove_by_client(librados::ObjectWriteOperation& op, const string& client_id, const string& op_id)
+void cls_statelog_remove_by_client(librados::ObjectWriteOperation& op, const std::string& client_id, const std::string& op_id)
 {
   bufferlist in;
   cls_statelog_remove_op call;
@@ -57,7 +60,7 @@ void cls_statelog_remove_by_client(librados::ObjectWriteOperation& op, const str
   op.exec("statelog", "remove", in);
 }
 
-void cls_statelog_remove_by_object(librados::ObjectWriteOperation& op, const string& object, const string& op_id)
+void cls_statelog_remove_by_object(librados::ObjectWriteOperation& op, const std::string& object, const std::string& op_id)
 {
   bufferlist in;
   cls_statelog_remove_op call;
@@ -68,11 +71,11 @@ void cls_statelog_remove_by_object(librados::ObjectWriteOperation& op, const str
 }
 
 class StateLogListCtx : public ObjectOperationCompletion {
-  list<cls_statelog_entry> *entries;
-  string *marker;
+  std::list<cls_statelog_entry> *entries;
+  std::string *marker;
   bool *truncated;
 public:
-  StateLogListCtx(list<cls_statelog_entry> *_entries, string *_marker, bool *_truncated) :
+  StateLogListCtx(std::list<cls_statelog_entry> *_entries, std::string *_marker, bool *_truncated) :
                                       entries(_entries), marker(_marker), truncated(_truncated) {}
   void handle_completion(int r, bufferlist& outbl) override {
     if (r >= 0) {
@@ -94,9 +97,9 @@ public:
 };
 
 void cls_statelog_list(librados::ObjectReadOperation& op,
-                       const string& client_id, const string& op_id, const string& object, /* op_id may be empty, also one of client_id, object*/
-                       const string& in_marker, int max_entries, list<cls_statelog_entry>& entries,
-                       string *out_marker, bool *truncated)
+                       const std::string& client_id, const std::string& op_id, const std::string& object, /* op_id may be empty, also one of client_id, object*/
+                       const std::string& in_marker, int max_entries, std::list<cls_statelog_entry>& entries,
+                       std::string *out_marker, bool *truncated)
 {
   bufferlist inbl;
   cls_statelog_list_op call;
@@ -111,7 +114,7 @@ void cls_statelog_list(librados::ObjectReadOperation& op,
   op.exec("statelog", "list", inbl, new StateLogListCtx(&entries, out_marker, truncated));
 }
 
-void cls_statelog_check_state(librados::ObjectOperation& op, const string& client_id, const string& op_id, const string& object, uint32_t state)
+void cls_statelog_check_state(librados::ObjectOperation& op, const std::string& client_id, const std::string& op_id, const std::string& object, uint32_t state)
 {
   bufferlist inbl;
   bufferlist outbl;

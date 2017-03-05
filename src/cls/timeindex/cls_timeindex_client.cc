@@ -12,7 +12,7 @@
 using namespace librados;
 
 
-void cls_timeindex_add(librados::ObjectWriteOperation& op, list<cls_timeindex_entry>& entries)
+void cls_timeindex_add(librados::ObjectWriteOperation& op, std::list<cls_timeindex_entry>& entries)
 {
   bufferlist in;
   cls_timeindex_add_op call;
@@ -36,7 +36,7 @@ void cls_timeindex_add(librados::ObjectWriteOperation& op, cls_timeindex_entry& 
 
 void cls_timeindex_add_prepare_entry(cls_timeindex_entry& entry,
                                      const utime_t& key_timestamp,
-                                     const string& key_ext,
+                                     const std::string& key_ext,
                                      const bufferlist& bl)
 {
   entry.key_ts  = key_timestamp;
@@ -46,7 +46,7 @@ void cls_timeindex_add_prepare_entry(cls_timeindex_entry& entry,
 
 void cls_timeindex_add(librados::ObjectWriteOperation& op,
                        const utime_t& key_timestamp,
-                       const string& key_ext,
+                       const std::string& key_ext,
                        const bufferlist& bl)
 {
   cls_timeindex_entry entry;
@@ -58,8 +58,8 @@ void cls_timeindex_add(librados::ObjectWriteOperation& op,
 void cls_timeindex_trim(librados::ObjectWriteOperation& op,
                         const utime_t& from_time,
                         const utime_t& to_time,
-                        const string& from_marker,
-                        const string& to_marker)
+                        const std::string& from_marker,
+                        const std::string& to_marker)
 {
   bufferlist in;
   cls_timeindex_trim_op call;
@@ -75,11 +75,11 @@ void cls_timeindex_trim(librados::ObjectWriteOperation& op,
 }
 
 int cls_timeindex_trim(librados::IoCtx& io_ctx,
-                       const string& oid,
+                       const std::string& oid,
                        const utime_t& from_time,
                        const utime_t& to_time,
-                       const string& from_marker,
-                       const string& to_marker)
+                       const std::string& from_marker,
+                       const std::string& to_marker)
 {
   bool done = false;
 
@@ -101,13 +101,13 @@ int cls_timeindex_trim(librados::IoCtx& io_ctx,
 }
 
 class TimeindexListCtx : public ObjectOperationCompletion {
-  list<cls_timeindex_entry> *entries;
-  string *marker;
+  std::list<cls_timeindex_entry> *entries;
+  std::string *marker;
   bool *truncated;
 
 public:
-  TimeindexListCtx(list<cls_timeindex_entry> *_entries,
-                   string *_marker,
+  TimeindexListCtx(std::list<cls_timeindex_entry> *_entries,
+                   std::string *_marker,
                    bool *_truncated)
     : entries(_entries), marker(_marker), truncated(_truncated) {}
 
@@ -136,10 +136,10 @@ public:
 void cls_timeindex_list(librados::ObjectReadOperation& op,
                         const utime_t& from,
                         const utime_t& to,
-                        const string& in_marker,
+                        const std::string& in_marker,
                         const int max_entries,
-                        list<cls_timeindex_entry>& entries,
-                        string *out_marker,
+                        std::list<cls_timeindex_entry>& entries,
+                        std::string *out_marker,
                         bool *truncated)
 {
   bufferlist inbl;

@@ -47,8 +47,8 @@ public:
   int w;
   int DEFAULT_W;
   int technique;
-  string ruleset_root;
-  string ruleset_failure_domain;
+  std::string ruleset_root;
+  std::string ruleset_failure_domain;
   int *matrix;
 
   ErasureCodeShec(const int _technique,
@@ -70,9 +70,9 @@ public:
 
   virtual ~ErasureCodeShec() {}
 
-  virtual int create_ruleset(const string &name,
+  virtual int create_ruleset(const std::string &name,
 			     CrushWrapper &crush,
-			     ostream *ss) const;
+			     std::ostream *ss) const;
 
   virtual unsigned int get_chunk_count() const {
     return k + m;
@@ -84,28 +84,28 @@ public:
 
   virtual unsigned int get_chunk_size(unsigned int object_size) const;
 
-  virtual int minimum_to_decode(const set<int> &want_to_read,
-				const set<int> &available_chunks,
-				set<int> *minimum);
+  virtual int minimum_to_decode(const std::set<int> &want_to_read,
+				const std::set<int> &available_chunks,
+				std::set<int> *minimum);
 
-  virtual int minimum_to_decode_with_cost(const set<int> &want_to_read,
-					  const map<int, int> &available,
-					  set<int> *minimum);
+  virtual int minimum_to_decode_with_cost(const std::set<int> &want_to_read,
+					  const std::map<int, int> &available,
+					  std::set<int> *minimum);
 
-  virtual int encode(const set<int> &want_to_encode,
+  virtual int encode(const std::set<int> &want_to_encode,
 		     const bufferlist &in,
-		     map<int, bufferlist> *encoded);
-  virtual int encode_chunks(const set<int> &want_to_encode,
-			    map<int, bufferlist> *encoded);
+		     std::map<int, bufferlist> *encoded);
+  virtual int encode_chunks(const std::set<int> &want_to_encode,
+			    std::map<int, bufferlist> *encoded);
 
-  virtual int decode(const set<int> &want_to_read,
-		     const map<int, bufferlist> &chunks,
-		     map<int, bufferlist> *decoded);
-  virtual int decode_chunks(const set<int> &want_to_read,
-			    const map<int, bufferlist> &chunks,
-			    map<int, bufferlist> *decoded);
+  virtual int decode(const std::set<int> &want_to_read,
+		     const std::map<int, bufferlist> &chunks,
+		     std::map<int, bufferlist> *decoded);
+  virtual int decode_chunks(const std::set<int> &want_to_read,
+			    const std::map<int, bufferlist> &chunks,
+			    std::map<int, bufferlist> *decoded);
 
-  virtual int init(ErasureCodeProfile &profile, ostream *ss);
+  virtual int init(ErasureCodeProfile &profile, std::ostream *ss);
   virtual void shec_encode(char **data,
 			   char **coding,
 			   int blocksize) = 0;

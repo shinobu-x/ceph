@@ -91,7 +91,7 @@ int ErasureCodePluginRegistry::factory(const std::string &plugin_name,
 				       const std::string &directory,
 				       ErasureCodeProfile &profile,
 				       ErasureCodeInterfaceRef *erasure_code,
-				       ostream *ss)
+				       std::ostream *ss)
 {
   ErasureCodePlugin *plugin;
   {
@@ -124,7 +124,7 @@ static const char *an_older_version() {
 int ErasureCodePluginRegistry::load(const std::string &plugin_name,
 				    const std::string &directory,
 				    ErasureCodePlugin **plugin,
-				    ostream *ss)
+				    std::ostream *ss)
 {
   assert(lock.is_locked());
   std::string fname = directory + "/" PLUGIN_PREFIX
@@ -139,7 +139,7 @@ int ErasureCodePluginRegistry::load(const std::string &plugin_name,
     (const char *(*)())dlsym(library, PLUGIN_VERSION_FUNCTION);
   if (erasure_code_version == NULL)
     erasure_code_version = an_older_version;
-  if (erasure_code_version() != string(CEPH_GIT_NICE_VER)) {
+  if (erasure_code_version() != std::string(CEPH_GIT_NICE_VER)) {
     *ss << "expected plugin " << fname << " version " << CEPH_GIT_NICE_VER
 	<< " but it claims to be " << erasure_code_version() << " instead";
     dlclose(library);
@@ -183,12 +183,12 @@ int ErasureCodePluginRegistry::load(const std::string &plugin_name,
 
 int ErasureCodePluginRegistry::preload(const std::string &plugins,
 				       const std::string &directory,
-				       ostream *ss)
+				       std::ostream *ss)
 {
   Mutex::Locker l(lock);
-  list<string> plugins_list;
+  std::list<std::string> plugins_list;
   get_str_list(plugins, plugins_list);
-  for (list<string>::iterator i = plugins_list.begin();
+  for (std::list<std::string>::iterator i = plugins_list.begin();
        i != plugins_list.end();
        ++i) {
     ErasureCodePlugin *plugin;

@@ -9,7 +9,6 @@
 // for testing DELETE ME
 #include <fstream>
 
-using namespace std;
 using namespace json_spirit;
 
 #define dout_subsys ceph_subsys_rgw

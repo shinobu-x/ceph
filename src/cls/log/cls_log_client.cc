@@ -1,3 +1,6 @@
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// vim: ts=8 sw=2 smarttab
+
 #include <errno.h>
 
 #include "include/types.h"
@@ -10,7 +13,7 @@ using namespace librados;
 
 
 
-void cls_log_add(librados::ObjectWriteOperation& op, list<cls_log_entry>& entries, bool monotonic_inc)
+void cls_log_add(librados::ObjectWriteOperation& op, std::list<cls_log_entry>& entries, bool monotonic_inc)
 {
   bufferlist in;
   cls_log_add_op call;
@@ -29,7 +32,7 @@ void cls_log_add(librados::ObjectWriteOperation& op, cls_log_entry& entry)
 }
 
 void cls_log_add_prepare_entry(cls_log_entry& entry, const utime_t& timestamp,
-                 const string& section, const string& name, bufferlist& bl)
+                 const std::string& section, const std::string& name, bufferlist& bl)
 {
   entry.timestamp = timestamp;
   entry.section = section;
@@ -38,7 +41,7 @@ void cls_log_add_prepare_entry(cls_log_entry& entry, const utime_t& timestamp,
 }
 
 void cls_log_add(librados::ObjectWriteOperation& op, const utime_t& timestamp,
-                 const string& section, const string& name, bufferlist& bl)
+                 const std::string& section, const std::string& name, bufferlist& bl)
 {
   cls_log_entry entry;
 
@@ -47,7 +50,7 @@ void cls_log_add(librados::ObjectWriteOperation& op, const utime_t& timestamp,
 }
 
 void cls_log_trim(librados::ObjectWriteOperation& op, const utime_t& from_time, const utime_t& to_time,
-                  const string& from_marker, const string& to_marker)
+                  const std::string& from_marker, const std::string& to_marker)
 {
   bufferlist in;
   cls_log_trim_op call;
@@ -59,8 +62,8 @@ void cls_log_trim(librados::ObjectWriteOperation& op, const utime_t& from_time, 
   op.exec("log", "trim", in);
 }
 
-int cls_log_trim(librados::IoCtx& io_ctx, const string& oid, const utime_t& from_time, const utime_t& to_time,
-                 const string& from_marker, const string& to_marker)
+int cls_log_trim(librados::IoCtx& io_ctx, const std::string& oid, const utime_t& from_time, const utime_t& to_time,
+                 const std::string& from_marker, const std::string& to_marker)
 {
   bool done = false;
 
@@ -82,11 +85,11 @@ int cls_log_trim(librados::IoCtx& io_ctx, const string& oid, const utime_t& from
 }
 
 class LogListCtx : public ObjectOperationCompletion {
-  list<cls_log_entry> *entries;
-  string *marker;
+  std::list<cls_log_entry> *entries;
+  std::string *marker;
   bool *truncated;
 public:
-  LogListCtx(list<cls_log_entry> *_entries, string *_marker, bool *_truncated) :
+  LogListCtx(std::list<cls_log_entry> *_entries, std::string *_marker, bool *_truncated) :
                                       entries(_entries), marker(_marker), truncated(_truncated) {}
   void handle_completion(int r, bufferlist& outbl) override {
     if (r >= 0) {
@@ -108,9 +111,9 @@ public:
 };
 
 void cls_log_list(librados::ObjectReadOperation& op, utime_t& from, utime_t& to,
-                  const string& in_marker, int max_entries,
-		  list<cls_log_entry>& entries,
-                  string *out_marker, bool *truncated)
+                  const std::string& in_marker, int max_entries,
+		  std::list<cls_log_entry>& entries,
+                  std::string *out_marker, bool *truncated)
 {
   bufferlist inbl;
   cls_log_list_op call;

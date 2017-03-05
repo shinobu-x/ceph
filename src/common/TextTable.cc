@@ -13,9 +13,8 @@
  */
 #include "TextTable.h"
 
-using namespace std;
 
-void TextTable::define_column(const string &heading,
+void TextTable::define_column(const std::string &heading,
 			      enum TextTable::Align hd_align,
 			      enum TextTable::Align col_align)
 {
@@ -41,8 +40,8 @@ void TextTable::clear() {
  *
  * @return padded string
  */
-static string
-pad(string s, int width, TextTable::Align align)
+static std::string
+pad(std::string s, int width, TextTable::Align align)
 {
   int lpad, rpad;
   lpad = rpad = 0;
@@ -59,27 +58,27 @@ pad(string s, int width, TextTable::Align align)
       break;
   }
 
-  return string(lpad, ' ') + s + string(rpad, ' ');
+  return std::string(lpad, ' ') + s + std::string(rpad, ' ');
 }
 
 std::ostream &operator<<(std::ostream &out, const TextTable &t)
 {
   for (unsigned int i = 0; i < t.col.size(); i++) {
     TextTable::TextTableColumn col = t.col[i];
-    out << string(t.indent, ' ')
+    out << std::string(t.indent, ' ')
         << pad(col.heading, col.width, col.hd_align)
 	<< ' ';
   }
-  out << endl;
+  out << std::endl;
 
   for (unsigned int i = 0; i < t.row.size(); i++) {
     for (unsigned int j = 0; j < t.row[i].size(); j++) {
       TextTable::TextTableColumn col = t.col[j];
-      out << string(t.indent, ' ')
+      out << std::string(t.indent, ' ')
 	  << pad(t.row[i][j], col.width, col.col_align)
 	  << ' ';
     }
-    out << endl;
+    out << std::endl;
   }
   return out;
 }

@@ -30,7 +30,7 @@ WRITE_CLASS_ENCODER(cls_version_set_op)
 
 struct cls_version_inc_op {
   obj_version objv;
-  list<obj_version_cond> conds;
+  std::list<obj_version_cond> conds;
 
   cls_version_inc_op() {}
 
@@ -52,7 +52,7 @@ WRITE_CLASS_ENCODER(cls_version_inc_op)
 
 struct cls_version_check_op {
   obj_version objv;
-  list<obj_version_cond> conds;
+  std::list<obj_version_cond> conds;
 
   cls_version_check_op() {}
 

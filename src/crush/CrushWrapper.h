@@ -48,7 +48,6 @@ inline static void decode(crush_rule_step &s, bufferlist::iterator &p)
   ::decode(s.arg2, p);
 }
 
-using namespace std;
 class CrushWrapper {
 public:
   std::map<int32_t, string> type_map; /* bucket/device type names */

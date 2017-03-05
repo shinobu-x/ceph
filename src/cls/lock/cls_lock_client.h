@@ -46,7 +46,7 @@ namespace rados {
 			    const entity_name_t& locker);
 
       extern int list_locks(librados::IoCtx *ioctx, const std::string& oid,
-			    list<std::string> *locks);
+			    std::list<std::string> *locks);
       extern void get_lock_info_start(librados::ObjectReadOperation *rados_op,
 				      const std::string& name);
       extern int get_lock_info_finish(ceph::bufferlist::iterator *out,

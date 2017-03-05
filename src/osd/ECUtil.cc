@@ -7,7 +7,7 @@
 int ECUtil::decode(
   const stripe_info_t &sinfo,
   ErasureCodeInterfaceRef &ec_impl,
-  map<int, bufferlist> &to_decode,
+  std::map<int, bufferlist> &to_decode,
   bufferlist *out) {
   assert(to_decode.size());
 
@@ -17,7 +17,7 @@ int ECUtil::decode(
   assert(out);
   assert(out->length() == 0);
 
-  for (map<int, bufferlist>::iterator i = to_decode.begin();
+  for (std::map<int, bufferlist>::iterator i = to_decode.begin();
        i != to_decode.end();
        ++i) {
     assert(i->second.length() == total_data_size);
@@ -27,8 +27,8 @@ int ECUtil::decode(
     return 0;
 
   for (uint64_t i = 0; i < total_data_size; i += sinfo.get_chunk_size()) {
-    map<int, bufferlist> chunks;
-    for (map<int, bufferlist>::iterator j = to_decode.begin();
+    std::map<int, bufferlist> chunks;
+    for (std::map<int, bufferlist>::iterator j = to_decode.begin();
 	 j != to_decode.end();
 	 ++j) {
       chunks[j->first].substr_of(j->second, i, sinfo.get_chunk_size());
@@ -45,14 +45,14 @@ int ECUtil::decode(
 int ECUtil::decode(
   const stripe_info_t &sinfo,
   ErasureCodeInterfaceRef &ec_impl,
-  map<int, bufferlist> &to_decode,
-  map<int, bufferlist*> &out) {
+  std::map<int, bufferlist> &to_decode,
+  std::map<int, bufferlist*> &out) {
   assert(to_decode.size());
 
   uint64_t total_data_size = to_decode.begin()->second.length();
   assert(total_data_size % sinfo.get_chunk_size() == 0);
 
-  for (map<int, bufferlist>::iterator i = to_decode.begin();
+  for (std::map<int, bufferlist>::iterator i = to_decode.begin();
        i != to_decode.end();
        ++i) {
     assert(i->second.length() == total_data_size);
@@ -61,8 +61,8 @@ int ECUtil::decode(
   if (total_data_size == 0)
     return 0;
 
-  set<int> need;
-  for (map<int, bufferlist*>::iterator i = out.begin();
+  std::set<int> need;
+  for (std::map<int, bufferlist*>::iterator i = out.begin();
        i != out.end();
        ++i) {
     assert(i->second);
@@ -71,16 +71,16 @@ int ECUtil::decode(
   }
 
   for (uint64_t i = 0; i < total_data_size; i += sinfo.get_chunk_size()) {
-    map<int, bufferlist> chunks;
-    for (map<int, bufferlist>::iterator j = to_decode.begin();
+    std::map<int, bufferlist> chunks;
+    for (std::map<int, bufferlist>::iterator j = to_decode.begin();
 	 j != to_decode.end();
 	 ++j) {
       chunks[j->first].substr_of(j->second, i, sinfo.get_chunk_size());
     }
-    map<int, bufferlist> out_bls;
+    std::map<int, bufferlist> out_bls;
     int r = ec_impl->decode(need, chunks, &out_bls);
     assert(r == 0);
-    for (map<int, bufferlist*>::iterator j = out.begin();
+    for (std::map<int, bufferlist*>::iterator j = out.begin();
 	 j != out.end();
 	 ++j) {
       assert(out_bls.count(j->first));
@@ -88,7 +88,7 @@ int ECUtil::decode(
       j->second->claim_append(out_bls[j->first]);
     }
   }
-  for (map<int, bufferlist*>::iterator i = out.begin();
+  for (std::map<int, bufferlist*>::iterator i = out.begin();
        i != out.end();
        ++i) {
     assert(i->second->length() == total_data_size);
@@ -100,8 +100,8 @@ int ECUtil::encode(
   const stripe_info_t &sinfo,
   ErasureCodeInterfaceRef &ec_impl,
   bufferlist &in,
-  const set<int> &want,
-  map<int, bufferlist> *out) {
+  const std::set<int> &want,
+  std::map<int, bufferlist> *out) {
 
   uint64_t logical_size = in.length();
 
@@ -113,12 +113,12 @@ int ECUtil::encode(
     return 0;
 
   for (uint64_t i = 0; i < logical_size; i += sinfo.get_stripe_width()) {
-    map<int, bufferlist> encoded;
+    std::map<int, bufferlist> encoded;
     bufferlist buf;
     buf.substr_of(in, i, sinfo.get_stripe_width());
     int r = ec_impl->encode(want, buf, &encoded);
     assert(r == 0);
-    for (map<int, bufferlist>::iterator i = encoded.begin();
+    for (std::map<int, bufferlist>::iterator i = encoded.begin();
 	 i != encoded.end();
 	 ++i) {
       assert(i->second.length() == sinfo.get_chunk_size());
@@ -126,7 +126,7 @@ int ECUtil::encode(
     }
   }
 
-  for (map<int, bufferlist>::iterator i = out->begin();
+  for (std::map<int, bufferlist>::iterator i = out->begin();
        i != out->end();
        ++i) {
     assert(i->second.length() % sinfo.get_chunk_size() == 0);
@@ -138,12 +138,12 @@ int ECUtil::encode(
 }
 
 void ECUtil::HashInfo::append(uint64_t old_size,
-			      map<int, bufferlist> &to_append) {
+			      std::map<int, bufferlist> &to_append) {
   assert(old_size == total_chunk_size);
   uint64_t size_to_append = to_append.begin()->second.length();
   if (has_chunk_hash()) {
     assert(to_append.size() == cumulative_shard_hashes.size());
-    for (map<int, bufferlist>::iterator i = to_append.begin();
+    for (std::map<int, bufferlist>::iterator i = to_append.begin();
 	 i != to_append.end();
 	 ++i) {
       assert(size_to_append == i->second.length());
@@ -185,13 +185,13 @@ void ECUtil::HashInfo::dump(Formatter *f) const
   f->close_section();
 }
 
-void ECUtil::HashInfo::generate_test_instances(list<HashInfo*>& o)
+void ECUtil::HashInfo::generate_test_instances(std::list<HashInfo*>& o)
 {
   o.push_back(new HashInfo(3));
   {
     bufferlist bl;
     bl.append_zero(20);
-    map<int, bufferlist> buffers;
+    std::map<int, bufferlist> buffers;
     buffers[0] = bl;
     buffers[1] = bl;
     buffers[2] = bl;
@@ -201,14 +201,14 @@ void ECUtil::HashInfo::generate_test_instances(list<HashInfo*>& o)
   o.push_back(new HashInfo(4));
 }
 
-const string HINFO_KEY = "hinfo_key";
+const std::string HINFO_KEY = "hinfo_key";
 
-bool ECUtil::is_hinfo_key_string(const string &key)
+bool ECUtil::is_hinfo_key_string(const std::string &key)
 {
   return key == HINFO_KEY;
 }
 
-const string &ECUtil::get_hinfo_key()
+const std::string &ECUtil::get_hinfo_key()
 {
   return HINFO_KEY;
 }
