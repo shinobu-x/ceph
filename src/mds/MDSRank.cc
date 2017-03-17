@@ -67,6 +67,20 @@ MDSRank::MDSRank(
     last_state(MDSMap::STATE_BOOT),
     state(MDSMap::STATE_BOOT),
     stopping(false),
+    purge_queue(g_ceph_context, whoami_,
+      mdsmap_->get_metadata_pool(), objecter,
+      new FunctionContext(
+          [this](int r){
+          // Purge Queue operates inside mds_lock when we're calling into
+          // it, and outside when in background, so must handle both cases.
+          if (mds_lock.is_locked_by_me()) {
+            damaged();
+          } else {
+            damaged_unlocked();
+          }
+        }
+      )
+    ),
     progress_thread(this), dispatch_depth(0),
     hb(NULL), last_tid(0), osd_epoch_barrier(0), beacon(beacon_),
     mds_slow_req_count(0),
@@ -78,11 +92,13 @@ MDSRank::MDSRank(
 {
   hb = g_ceph_context->get_heartbeat_map()->add_worker("MDSRank", pthread_self());
 
+  purge_queue.update_op_limit(*mdsmap);
+
   objecter->unset_honor_osdmap_full();
 
   finisher = new Finisher(msgr->cct);
 
-  mdcache = new MDCache(this);
+  mdcache = new MDCache(this, purge_queue);
   mdlog = new MDLog(this);
   balancer = new MDBalancer(this, messenger, monc);
 
@@ -159,6 +175,8 @@ void MDSRankDispatcher::init()
 
   progress_thread.create("mds_rank_progr");
 
+  purge_queue.init();
+
   finisher->start();
 }
 
@@ -216,6 +234,34 @@ void MDSRankDispatcher::tick()
       snapserver->check_osd_map(false);
   }
 
+  // shut down?
+  if (is_stopping()) {
+    mdlog->trim();
+    if (mdcache->shutdown_pass()) {
+      uint64_t pq_progress = 0 ;
+      uint64_t pq_total = 0;
+      size_t pq_in_flight = 0;
+      if (!purge_queue.drain(&pq_progress, &pq_total, &pq_in_flight)) {
+        dout(7) << "shutdown_pass=true, but still waiting for purge queue"
+                << dendl;
+        // This takes unbounded time, so we must indicate progress
+        // to the administrator: we do it in a slightly imperfect way
+        // by sending periodic (tick frequency) clog messages while
+        // in this state.
+        clog->info() << "MDS rank " << whoami << " waiting for purge queue ("
+          << std::dec << pq_progress << "/" << pq_total << " " << pq_in_flight
+          << " files purging" << ")";
+      } else {
+        dout(7) << "shutdown_pass=true, finished w/ shutdown, moving to "
+                   "down:stopped" << dendl;
+        stopping_done();
+      }
+    }
+    else {
+      dout(7) << "shutdown_pass=false" << dendl;
+    }
+  }
+
   // Expose ourselves to Beacon to update health indicators
   beacon.notify_health(this);
 }
@@ -238,6 +284,8 @@ void MDSRankDispatcher::shutdown()
 
   // shut down cache
   mdcache->shutdown();
+
+  purge_queue.shutdown();
 
   if (objecter->initialized.read())
     objecter->shutdown();
@@ -439,6 +487,8 @@ bool MDSRank::_dispatch(Message *m, bool new_msg)
       dout(0) << "unrecognized message " << *m << dendl;
       return false;
     }
+
+    heartbeat_reset();
   }
 
   if (dispatch_depth > 1)
@@ -476,7 +526,7 @@ bool MDSRank::_dispatch(Message *m, bool new_msg)
     set<mds_rank_t> s;
     if (!is_active()) break;
     mdsmap->get_mds_set(s, MDSMap::STATE_ACTIVE);
-    if (s.size() < 2 || mdcache->get_num_inodes() < 10)
+    if (s.size() < 2 || CInode::count() < 10)
       break;  // need peers for this to work.
     if (mdcache->migrator->get_num_exporting() > g_conf->mds_thrash_exports * 5 ||
 	mdcache->migrator->get_export_queue_size() > g_conf->mds_thrash_exports * 10)
@@ -563,17 +613,6 @@ bool MDSRank::_dispatch(Message *m, bool new_msg)
     mlogger->set(l_mdm_buf, buffer::get_total_alloc());
   }
 
-  // shut down?
-  if (is_stopping()) {
-    mdlog->trim();
-    if (mdcache->shutdown_pass()) {
-      dout(7) << "shutdown_pass=true, finished w/ shutdown, moving to down:stopped" << dendl;
-      stopping_done();
-    }
-    else {
-      dout(7) << "shutdown_pass=false" << dendl;
-    }
-  }
   return true;
 }
 
@@ -973,6 +1012,8 @@ void MDSRank::boot_start(BootStep step, int r)
 
         mdcache->open_mydir_inode(gather.new_sub());
 
+        purge_queue.open(new C_IO_Wrapper(this, gather.new_sub()));
+
         if (is_starting() ||
             whoami == mdsmap->get_root()) {  // load root inode off disk if we are auth
           mdcache->open_root_inode(gather.new_sub());
@@ -1355,6 +1396,9 @@ void MDSRank::boot_create()
   // write empty sessionmap
   sessionmap.save(fin.new_sub());
 
+  // Create empty purge queue
+  purge_queue.create(new C_IO_Wrapper(this, fin.new_sub()));
+
   // initialize tables
   if (mdsmap->get_tableserver() == whoami) {
     dout(10) << "boot_create creating fresh snaptable" << dendl;
@@ -1624,7 +1668,9 @@ void MDSRankDispatcher::handle_mds_map(
     }
   }
 
-  mdcache->notify_mdsmap_changed();
+  if (oldmap->get_max_mds() != mdsmap->get_max_mds()) {
+    purge_queue.update_op_limit(*mdsmap);
+  }
 }
 
 void MDSRank::handle_mds_recovery(mds_rank_t who)
@@ -2387,7 +2433,6 @@ void MDSRank::create_logger()
     mdm_plb.add_u64_counter(l_mdm_caps, "cap-", "Capabilities removed");
     mdm_plb.add_u64(l_mdm_rss, "rss", "RSS");
     mdm_plb.add_u64(l_mdm_heap, "heap", "Heap size");
-    mdm_plb.add_u64(l_mdm_malloc, "malloc", "Malloc size");
     mdm_plb.add_u64(l_mdm_buf, "buf", "Buffer size");
     mlogger = mdm_plb.create_perf_counters();
     g_ceph_context->get_perfcounters_collection()->add(mlogger);
@@ -2395,6 +2440,7 @@ void MDSRank::create_logger()
 
   mdlog->create_logger();
   server->create_logger();
+  purge_queue.create_logger();
   sessionmap.register_perfcounters();
   mdcache->register_perfcounters();
 }
@@ -2424,7 +2470,7 @@ void MDSRankDispatcher::handle_osd_map()
 
   server->handle_osd_map();
 
-  mdcache->notify_osdmap_changed();
+  purge_queue.update_op_limit(*mdsmap);
 
   // By default the objecter only requests OSDMap updates on use,
   // we would like to always receive the latest maps in order to

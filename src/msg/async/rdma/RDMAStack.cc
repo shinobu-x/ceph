@@ -22,6 +22,7 @@
 #include "common/deleter.h"
 #include "common/Tub.h"
 #include "RDMAStack.h"
+#include "Device.h"
 
 #define dout_subsys ceph_subsys_ms
 #undef dout_prefix
@@ -36,7 +37,9 @@ RDMADispatcher::~RDMADispatcher()
   ldout(cct, 20) << __func__ << " destructing rdma dispatcher" << dendl;
 
   assert(qp_conns.empty());
+  assert(num_qp_conn == 0);
   assert(dead_queue_pairs.empty());
+  assert(num_dead_queue_pair == 0);
 
   tx_cc->ack_events();
   rx_cc->ack_events();
@@ -202,16 +205,17 @@ void RDMADispatcher::polling()
       // Additionally, don't delete qp while outstanding_buffers isn't empty,
       // because we need to check qp's state before sending
       perf_logger->set(l_msgr_rdma_inflight_tx_chunks, inflight);
-      if (!inflight.load()) {
+      if (num_dead_queue_pair) {
         Mutex::Locker l(lock); // FIXME reuse dead qp because creating one qp costs 1 ms
         while (!dead_queue_pairs.empty()) {
           ldout(cct, 10) << __func__ << " finally delete qp=" << dead_queue_pairs.back() << dendl;
           delete dead_queue_pairs.back();
           perf_logger->dec(l_msgr_rdma_active_queue_pair);
           dead_queue_pairs.pop_back();
+          --num_dead_queue_pair;
         }
       }
-      if (done)
+      if (!num_qp_conn && done)
         break;
 
       if ((ceph_clock_now() - last_inactive).to_nsec() / 1000 > cct->_conf->ms_async_rdma_polling_us) {
@@ -235,7 +239,7 @@ void RDMADispatcher::polling()
         r = 0;
         perf_logger->set(l_msgr_rdma_polling, 0);
         while (!done && r == 0) {
-          r = poll(channel_poll, 2, 1);
+          r = poll(channel_poll, 2, 100);
           if (r < 0) {
             r = -errno;
             lderr(cct) << __func__ << " poll failed " << r << dendl;
@@ -277,6 +281,7 @@ int RDMADispatcher::register_qp(QueuePair *qp, RDMAConnectedSocketImpl* csi)
   Mutex::Locker l(lock);
   assert(!qp_conns.count(qp->get_local_qp_number()));
   qp_conns[qp->get_local_qp_number()] = std::make_pair(qp, csi);
+  ++num_qp_conn;
   return fd;
 }
 
@@ -296,8 +301,10 @@ void RDMADispatcher::erase_qpn(uint32_t qpn)
   auto it = qp_conns.find(qpn);
   if (it == qp_conns.end())
     return ;
+  ++num_dead_queue_pair;
   dead_queue_pairs.push_back(it->second.first);
   qp_conns.erase(it);
+  --num_qp_conn;
 }
 
 void RDMADispatcher::handle_pre_fork()

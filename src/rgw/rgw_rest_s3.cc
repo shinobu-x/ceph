@@ -519,7 +519,7 @@ void RGWListBucket_ObjStore_S3::send_versioned_response()
       s->formatter->open_array_section("Entries");
     }
 
-    vector<RGWObjEnt>::iterator iter;
+    vector<rgw_bucket_dir_entry>::iterator iter;
     for (iter = objs.begin(); iter != objs.end(); ++iter) {
       const char *section_name = (iter->is_delete_marker() ? "DeleteMarker"
 				  : "Version");
@@ -527,14 +527,15 @@ void RGWListBucket_ObjStore_S3::send_versioned_response()
       if (objs_container) {
         s->formatter->dump_bool("IsDeleteMarker", iter->is_delete_marker());
       }
+      rgw_obj_key key(iter->key);
       if (encode_key) {
 	string key_name;
-	url_encode(iter->key.name, key_name);
+	url_encode(key.name, key_name);
 	s->formatter->dump_string("Key", key_name);
       } else {
-	s->formatter->dump_string("Key", iter->key.name);
+	s->formatter->dump_string("Key", key.name);
       }
-      string version_id = iter->key.instance;
+      string version_id = key.instance;
       if (version_id.empty()) {
 	version_id = "null";
       }
@@ -543,18 +544,18 @@ void RGWListBucket_ObjStore_S3::send_versioned_response()
           s->formatter->dump_int("VersionedEpoch", iter->versioned_epoch);
         }
         s->formatter->dump_string("RgwxTag", iter->tag);
-        utime_t ut(iter->mtime);
+        utime_t ut(iter->meta.mtime);
         ut.gmtime_nsec(s->formatter->dump_stream("RgwxMtime"));
       }
       s->formatter->dump_string("VersionId", version_id);
       s->formatter->dump_bool("IsLatest", iter->is_current());
-      dump_time(s, "LastModified", &iter->mtime);
+      dump_time(s, "LastModified", &iter->meta.mtime);
       if (!iter->is_delete_marker()) {
-	s->formatter->dump_format("ETag", "\"%s\"", iter->etag.c_str());
-	s->formatter->dump_int("Size", iter->accounted_size);
+	s->formatter->dump_format("ETag", "\"%s\"", iter->meta.etag.c_str());
+	s->formatter->dump_int("Size", iter->meta.accounted_size);
 	s->formatter->dump_string("StorageClass", "STANDARD");
       }
-      dump_owner(s, iter->owner, iter->owner_display_name);
+      dump_owner(s, iter->meta.owner, iter->meta.owner_display_name);
       s->formatter->close_section();
     }
     if (objs_container) {
@@ -613,21 +614,22 @@ void RGWListBucket_ObjStore_S3::send_response()
   }
 
   if (op_ret >= 0) {
-    vector<RGWObjEnt>::iterator iter;
+    vector<rgw_bucket_dir_entry>::iterator iter;
     for (iter = objs.begin(); iter != objs.end(); ++iter) {
+      rgw_obj_key key(iter->key);
       s->formatter->open_array_section("Contents");
       if (encode_key) {
 	string key_name;
-	url_encode(iter->key.name, key_name);
+	url_encode(key.name, key_name);
 	s->formatter->dump_string("Key", key_name);
       } else {
-	s->formatter->dump_string("Key", iter->key.name);
+	s->formatter->dump_string("Key", key.name);
       }
-      dump_time(s, "LastModified", &iter->mtime);
-      s->formatter->dump_format("ETag", "\"%s\"", iter->etag.c_str());
-      s->formatter->dump_int("Size", iter->accounted_size);
+      dump_time(s, "LastModified", &iter->meta.mtime);
+      s->formatter->dump_format("ETag", "\"%s\"", iter->meta.etag.c_str());
+      s->formatter->dump_int("Size", iter->meta.accounted_size);
       s->formatter->dump_string("StorageClass", "STANDARD");
-      dump_owner(s, iter->owner, iter->owner_display_name);
+      dump_owner(s, iter->meta.owner, iter->meta.owner_display_name);
       if (s->system_request) {
         s->formatter->dump_string("RgwxTag", iter->tag);
       }
@@ -704,7 +706,7 @@ class RGWSetBucketVersioningParser : public RGWXMLParser
 
 public:
   RGWSetBucketVersioningParser() {}
-  ~RGWSetBucketVersioningParser() {}
+  ~RGWSetBucketVersioningParser() override {}
 
   int get_versioning_status(bool *status) {
     XMLObj *config = find_first("VersioningConfiguration");
@@ -900,7 +902,7 @@ class RGWLocationConstraint : public XMLObj
 {
 public:
   RGWLocationConstraint() {}
-  ~RGWLocationConstraint() {}
+  ~RGWLocationConstraint() override {}
   bool xml_end(const char *el) override {
     if (!el)
       return false;
@@ -917,7 +919,7 @@ class RGWCreateBucketConfig : public XMLObj
 {
 public:
   RGWCreateBucketConfig() {}
-  ~RGWCreateBucketConfig() {}
+  ~RGWCreateBucketConfig() override {}
 };
 
 class RGWCreateBucketParser : public RGWXMLParser
@@ -928,7 +930,7 @@ class RGWCreateBucketParser : public RGWXMLParser
 
 public:
   RGWCreateBucketParser() {}
-  ~RGWCreateBucketParser() {}
+  ~RGWCreateBucketParser() override {}
 
   bool get_location_constraint(string& zone_group) {
     XMLObj *config = find_first("CreateBucketConfiguration");
@@ -2551,7 +2553,7 @@ class RGWSetRequestPaymentParser : public RGWXMLParser
 
 public:
   RGWSetRequestPaymentParser() {}
-  ~RGWSetRequestPaymentParser() {}
+  ~RGWSetRequestPaymentParser() override {}
 
   int get_request_payment_payer(bool *requester_pays) {
     XMLObj *config = find_first("RequestPaymentConfiguration");
@@ -2800,7 +2802,7 @@ void RGWListBucketMultiparts_ObjStore_S3::send_response()
       dump_owner(s, s->user->user_id, s->user->display_name, "Initiator");
       dump_owner(s, s->user->user_id, s->user->display_name);
       s->formatter->dump_string("StorageClass", "STANDARD");
-      dump_time(s, "Initiated", &iter->obj.mtime);
+      dump_time(s, "Initiated", &iter->obj.meta.mtime);
       s->formatter->close_section();
     }
     if (!common_prefixes.empty()) {
@@ -2919,9 +2921,9 @@ void RGWGetObjLayout_ObjStore_S3::send_response()
   f.open_array_section("data_location");
   for (auto miter = manifest->obj_begin(); miter != manifest->obj_end(); ++miter) {
     f.open_object_section("obj");
-    rgw_obj loc = miter.get_location();
+    rgw_raw_obj raw_loc = miter.get_location().get_raw_obj(store);
     ::encode_json("ofs", miter.get_ofs(), &f);
-    ::encode_json("loc", loc, &f);
+    ::encode_json("loc", raw_loc, &f);
     ::encode_json("loc_ofs", miter.location_ofs(), &f);
     ::encode_json("loc_size", miter.get_stripe_size(), &f);
     f.close_section();
@@ -3444,6 +3446,7 @@ int RGW_Auth_S3::authorize(RGWRados *store, struct req_state *s)
     return 0;
 
   } else {
+    /* Authorization in Header */
 
     /* AWS4 */
 
@@ -3586,6 +3589,9 @@ int RGW_Auth_S3::authorize_v4(RGWRados *store, struct req_state *s, bool force_b
 {
   string::size_type pos;
   bool using_qs;
+  /* used for pre-signatured url, We shouldn't return -ERR_REQUEST_TIME_SKEWED when 
+     current time <= X-Amz-Expires */
+  bool qsr = false;
 
   uint64_t now_req = 0;
   uint64_t now = ceph_clock_now();
@@ -3619,12 +3625,12 @@ int RGW_Auth_S3::authorize_v4(RGWRados *store, struct req_state *s, bool force_b
       return -EPERM;
 
     s->aws4_auth->expires = s->info.args.get("X-Amz-Expires");
-    if (s->aws4_auth->expires.size() != 0) {
+    if (!s->aws4_auth->expires.empty()) {
       /* X-Amz-Expires provides the time period, in seconds, for which
          the generated presigned URL is valid. The minimum value
          you can set is 1, and the maximum is 604800 (seven days) */
       time_t exp = atoll(s->aws4_auth->expires.c_str());
-      if ((exp < 1) || (exp > 604800)) {
+      if ((exp < 1) || (exp > 7*24*60*60)) {
         dout(10) << "NOTICE: exp out of range, exp = " << exp << dendl;
         return -EPERM;
       }
@@ -3634,12 +3640,17 @@ int RGW_Auth_S3::authorize_v4(RGWRados *store, struct req_state *s, bool force_b
         dout(10) << "NOTICE: now = " << now << ", now_req = " << now_req << ", exp = " << exp << dendl;
         return -EPERM;
       }
+      qsr = true;
     }
 
-    if ( (now_req < now - RGW_AUTH_GRACE_MINS * 60) ||
-         (now_req > now + RGW_AUTH_GRACE_MINS * 60) ) {
+    if ((now_req < now - RGW_AUTH_GRACE_MINS * 60 ||
+       now_req > now + RGW_AUTH_GRACE_MINS * 60) && !qsr) {
       dout(10) << "NOTICE: request time skew too big." << dendl;
-      dout(10) << "now_req = " << now_req << " now = " << now << "; now - RGW_AUTH_GRACE_MINS=" << now - RGW_AUTH_GRACE_MINS * 60 << "; now + RGW_AUTH_GRACE_MINS=" << now + RGW_AUTH_GRACE_MINS * 60 << dendl;
+      dout(10) << "now_req = " << now_req << " now = " << now
+               << "; now - RGW_AUTH_GRACE_MINS=" 
+               << now - RGW_AUTH_GRACE_MINS * 60
+               << "; now + RGW_AUTH_GRACE_MINS="
+               << now + RGW_AUTH_GRACE_MINS * 60 << dendl;
       return -ERR_REQUEST_TIME_SKEWED;
     }
 

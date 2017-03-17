@@ -1073,8 +1073,7 @@ void Objecter::_scan_requests(OSDSession *s,
 			 op->session ? op->session->con.get() : nullptr);
     switch (r) {
     case RECALC_OP_TARGET_NO_ACTION:
-      if (!force_resend &&
-	  (!force_resend_writes || !(op->target.flags & CEPH_OSD_FLAG_WRITE)))
+      if (!force_resend && !(force_resend_writes && op->respects_full()))
 	break;
       // -- fall-thru --
     case RECALC_OP_TARGET_NEED_RESEND:
@@ -2367,9 +2366,7 @@ void Objecter::_op_submit(Op *op, shunique_lock& sul, ceph_tid_t *ptid)
 		   << dendl;
     op->target.paused = true;
     _maybe_request_map();
-  } else if ((op->target.flags & (CEPH_OSD_FLAG_WRITE | CEPH_OSD_FLAG_RWORDERED)) &&
-	     !(op->target.flags & (CEPH_OSD_FLAG_FULL_TRY |
-				   CEPH_OSD_FLAG_FULL_FORCE)) &&
+  } else if (op->respects_full() &&
 	     (_osdmap_full_flag() ||
 	      _osdmap_pool_full(op->target.base_oloc.pool))) {
     ldout(cct, 0) << " FULL, paused modify " << op << " tid "
@@ -3550,6 +3547,33 @@ uint32_t Objecter::list_nobjects_seek(NListContext *list_context,
   return pos;
 }
 
+uint32_t Objecter::list_nobjects_seek(NListContext *list_context,
+				      const hobject_t& cursor)
+{
+  shared_lock rl(rwlock);
+  ldout(cct, 10) << "list_nobjects_seek " << list_context << dendl;
+  list_context->pos = cursor;
+  list_context->at_end_of_pool = false;
+  pg_t actual = osdmap->raw_pg_to_pg(pg_t(cursor.get_hash(), list_context->pool_id));
+  list_context->current_pg = actual.ps();
+  list_context->sort_bitwise = true;
+  return list_context->current_pg;
+}
+
+void Objecter::list_nobjects_get_cursor(NListContext *list_context,
+                                        hobject_t *cursor)
+{
+  shared_lock rl(rwlock);
+  if (list_context->list.empty()) {
+    *cursor = list_context->pos;
+  } else {
+    const librados::ListObjectImpl& entry = list_context->list.front();
+    const string *key = (entry.locator.empty() ? &entry.oid : &entry.locator);
+    uint32_t h = osdmap->get_pg_pool(list_context->pool_id)->hash_key(*key, entry.nspace);
+    *cursor = hobject_t(entry.oid, entry.locator, list_context->pool_snap_seq, h, list_context->pool_id, entry.nspace);
+  }
+}
+
 void Objecter::list_nobjects(NListContext *list_context, Context *onfinish)
 {
   ldout(cct, 10) << __func__ << " pool_id " << list_context->pool_id
@@ -3661,7 +3685,7 @@ void Objecter::_nlist_reply(NListContext *list_context, int r,
 		 << ", tentative new pos " << list_context->pos << dendl;
   list_context->extra_info.append(extra_info);
   if (response_size) {
-    list_context->list.merge(response.entries);
+    list_context->list.splice(list_context->list.end(), response.entries);
   }
 
   if (list_context->list.size() >= list_context->max_entries) {
@@ -4650,7 +4674,7 @@ void Objecter::handle_command_reply(MCommandReply *m)
     s->put();
 }
 
-int Objecter::submit_command(CommandOp *c, ceph_tid_t *ptid)
+void Objecter::submit_command(CommandOp *c, ceph_tid_t *ptid)
 {
   shunique_lock sul(rwlock, ceph::acquire_unique);
 
@@ -4682,8 +4706,6 @@ int Objecter::submit_command(CommandOp *c, ceph_tid_t *ptid)
   *ptid = tid;
 
   logger->inc(l_osdc_command_active);
-
-  return 0;
 }
 
 int Objecter::_calc_command_target(CommandOp *c, shunique_lock& sul)

@@ -5,6 +5,7 @@
 #define LIBRADOS_TEST_STUB_MOCK_TEST_MEM_IO_CTX_IMPL_H
 
 #include "test/librados_test_stub/TestMemIoCtxImpl.h"
+#include "test/librados_test_stub/TestMemCluster.h"
 #include "gmock/gmock.h"
 
 namespace librados {
@@ -16,7 +17,7 @@ public:
   MockTestMemIoCtxImpl(MockTestMemRadosClient *mock_client,
                        TestMemRadosClient *client, int64_t pool_id,
                        const std::string& pool_name,
-                       TestMemRadosClient::Pool *pool)
+                       TestMemCluster::Pool *pool)
     : TestMemIoCtxImpl(client, pool_id, pool_name, pool),
       m_mock_client(mock_client), m_client(client) {
     default_to_parent();
@@ -26,7 +27,7 @@ public:
     return m_mock_client;
   }
 
-  virtual TestIoCtxImpl *clone() {
+  TestIoCtxImpl *clone() override {
     TestIoCtxImpl *io_ctx_impl = new ::testing::NiceMock<MockTestMemIoCtxImpl>(
       m_mock_client, m_client, get_pool_id(), get_pool_name(), get_pool());
     io_ctx_impl->set_snap_read(get_snap_read());

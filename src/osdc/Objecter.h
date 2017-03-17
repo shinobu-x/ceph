@@ -1337,6 +1337,12 @@ public:
       return tid < other.tid;
     }
 
+    bool respects_full() const {
+      return
+	(target.flags & (CEPH_OSD_FLAG_WRITE | CEPH_OSD_FLAG_RWORDERED)) &&
+	!(target.flags & (CEPH_OSD_FLAG_FULL_TRY | CEPH_OSD_FLAG_FULL_FORCE));
+    }
+
   private:
     ~Op() {
       while (!out_handler.empty()) {
@@ -1548,7 +1554,7 @@ public:
 
   };
 
-  int submit_command(CommandOp *c, ceph_tid_t *ptid);
+  void submit_command(CommandOp *c, ceph_tid_t *ptid);
   int _calc_command_target(CommandOp *c, shunique_lock &sul);
   void _assign_command_session(CommandOp *c, shunique_lock &sul);
   void _send_command(CommandOp *c);
@@ -2106,7 +2112,7 @@ public:
   epoch_t op_cancel_writes(int r, int64_t pool=-1);
 
   // commands
-  int osd_command(int osd, vector<string>& cmd,
+  void osd_command(int osd, const std::vector<string>& cmd,
 		  const bufferlist& inbl, ceph_tid_t *ptid,
 		  bufferlist *poutbl, string *prs, Context *onfinish) {
     assert(osd >= 0);
@@ -2117,9 +2123,9 @@ public:
       poutbl,
       prs,
       onfinish);
-    return submit_command(c, ptid);
+    submit_command(c, ptid);
   }
-  int pg_command(pg_t pgid, vector<string>& cmd,
+  void pg_command(pg_t pgid, vector<string>& cmd,
 		 const bufferlist& inbl, ceph_tid_t *ptid,
 		 bufferlist *poutbl, string *prs, Context *onfinish) {
     CommandOp *c = new CommandOp(
@@ -2129,7 +2135,7 @@ public:
       poutbl,
       prs,
       onfinish);
-    return submit_command(c, ptid);
+    submit_command(c, ptid);
   }
 
   // mid-level helpers
@@ -2738,6 +2744,8 @@ public:
 
   void list_nobjects(NListContext *p, Context *onfinish);
   uint32_t list_nobjects_seek(NListContext *p, uint32_t pos);
+  uint32_t list_nobjects_seek(NListContext *list_context, const hobject_t& c);
+  void list_nobjects_get_cursor(NListContext *list_context, hobject_t *c);
 
   hobject_t enumerate_objects_begin();
   hobject_t enumerate_objects_end();

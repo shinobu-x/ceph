@@ -162,12 +162,12 @@ public:
   explicit MDCacheLogContext(MDCache *mdc_) : mdcache(mdc_) {}
 };
 
-MDCache::MDCache(MDSRank *m) :
+MDCache::MDCache(MDSRank *m, PurgeQueue &purge_queue_) :
   mds(m),
   filer(m->objecter, m->finisher),
   exceeded_size_limit(false),
   recovery_queue(m),
-  stray_manager(m)
+  stray_manager(m, purge_queue_)
 {
   migrator.reset(new Migrator(mds, this));
   root = NULL;
@@ -180,7 +180,6 @@ MDCache::MDCache(MDSRank *m) :
   }
 
   num_inodes_with_caps = 0;
-  num_caps = 0;
 
   max_dir_commit_size = g_conf->mds_dir_max_commit_size ?
                         (g_conf->mds_dir_max_commit_size << 20) :
@@ -227,7 +226,7 @@ void MDCache::log_stat()
   mds->logger->set(l_mds_inodes_bottom, lru.lru_get_bot());
   mds->logger->set(l_mds_inodes_pin_tail, lru.lru_get_pintail());
   mds->logger->set(l_mds_inodes_with_caps, num_inodes_with_caps);
-  mds->logger->set(l_mds_caps, num_caps);
+  mds->logger->set(l_mds_caps, Capability::count());
 }
 
 
@@ -268,7 +267,7 @@ void MDCache::add_inode(CInode *in)
       base_inodes.insert(in);
   }
 
-  if (get_num_inodes() >
+  if (CInode::count() >
         g_conf->mds_cache_size * g_conf->mds_health_cache_threshold) {
     exceeded_size_limit = true;
   }
@@ -585,8 +584,13 @@ void MDCache::open_root_inode(MDSInternalContextBase *c)
 
 void MDCache::open_mydir_inode(MDSInternalContextBase *c)
 {
+  MDSGatherBuilder gather(g_ceph_context);
+
   CInode *in = create_system_inode(MDS_INO_MDSDIR(mds->get_nodeid()), S_IFDIR|0755);  // initially inaccurate!
-  in->fetch(c);
+  in->fetch(gather.new_sub());
+
+  gather.set_finisher(c);
+  gather.activate();
 }
 
 void MDCache::open_root()
@@ -2270,7 +2274,7 @@ void MDCache::predirty_journal_parents(MutationRef mut, EMetaBlob *blob,
 	if (pi->dirstat.size() != pf->fragstat.size()) {
 	  mds->clog->error() << "unmatched fragstat size on single dirfrag "
 	     << parent->dirfrag() << ", inode has " << pi->dirstat
-	     << ", dirfrag has " << pf->fragstat << "\n";
+	     << ", dirfrag has " << pf->fragstat;
 	  
 	  // trust the dirfrag for now
 	  pi->dirstat = pf->fragstat;
@@ -2318,7 +2322,7 @@ void MDCache::predirty_journal_parents(MutationRef mut, EMetaBlob *blob,
       if (pi->rstat.rbytes != pf->rstat.rbytes) {
 	mds->clog->error() << "unmatched rstat rbytes on single dirfrag "
 	  << parent->dirfrag() << ", inode has " << pi->rstat
-	  << ", dirfrag has " << pf->rstat << "\n";
+	  << ", dirfrag has " << pf->rstat;
 
 	// trust the dirfrag for now
 	pi->rstat = pf->rstat;
@@ -5606,6 +5610,8 @@ void MDCache::export_remaining_imported_caps()
 	mds->send_message_client_counted(stale, q->first);
       }
     }
+
+    mds->heartbeat_reset();
   }
 
   for (map<inodeno_t, list<MDSInternalContextBase*> >::iterator p = cap_reconnect_waiters.begin();
@@ -5617,7 +5623,7 @@ void MDCache::export_remaining_imported_caps()
   cap_reconnect_waiters.clear();
 
   if (warn_str.peek() != EOF) {
-    mds->clog->warn() << "failed to reconnect caps for missing inodes:" << "\n";
+    mds->clog->warn() << "failed to reconnect caps for missing inodes:";
     mds->clog->warn(warn_str);
   }
 }
@@ -5775,7 +5781,7 @@ void MDCache::open_snap_parents()
 	     ++q)
 	  warn_str << "  client." << q->first << " snapid " << q->second << "\n";
       }
-      mds->clog->warn() << "open_snap_parents has:" << "\n";
+      mds->clog->warn() << "open_snap_parents has:";
       mds->clog->warn(warn_str);
     }
     assert(rejoin_waiters.empty());
@@ -6583,11 +6589,7 @@ bool MDCache::trim_dentry(CDentry *dn, map<mds_rank_t, MCacheExpire*>& expiremap
     assert(dnl->is_null());
   }
 
-  if (dn->is_auth()) {
-    if (dn->state_test(CDentry::STATE_PURGING)) {
-      stray_manager.notify_stray_trimmed(dn);
-    }
-  } else {
+  if (!dn->is_auth()) {
     // notify dentry authority.
     mds_authority_t auth = dn->authority();
     
@@ -7351,25 +7353,23 @@ void MDCache::check_memory_usage()
   static MemoryModel::snap baseline = last;
 
   // check client caps
-  int num_inodes = inode_map.size();
+  assert(CInode::count() == inode_map.size());
   float caps_per_inode = 0.0;
-  if (num_inodes)
-    caps_per_inode = (float)num_caps / (float)num_inodes;
+  if (CInode::count())
+    caps_per_inode = (float)Capability::count() / (float)CInode::count();
 
   dout(2) << "check_memory_usage"
 	   << " total " << last.get_total()
 	   << ", rss " << last.get_rss()
 	   << ", heap " << last.get_heap()
-	   << ", malloc " << last.malloc << " mmap " << last.mmap
 	   << ", baseline " << baseline.get_heap()
 	   << ", buffers " << (buffer::get_total_alloc() >> 10)
-	   << ", " << num_inodes_with_caps << " / " << inode_map.size() << " inodes have caps"
-	   << ", " << num_caps << " caps, " << caps_per_inode << " caps per inode"
+	   << ", " << num_inodes_with_caps << " / " << CInode::count() << " inodes have caps"
+	   << ", " << Capability::count() << " caps, " << caps_per_inode << " caps per inode"
 	   << dendl;
 
   mds->mlogger->set(l_mdm_rss, last.get_rss());
   mds->mlogger->set(l_mdm_heap, last.get_heap());
-  mds->mlogger->set(l_mdm_malloc, last.malloc);
 
   if (num_inodes_with_caps > g_conf->mds_cache_size) {
     float ratio = (float)g_conf->mds_cache_size * .9 / (float)num_inodes_with_caps;
@@ -7383,7 +7383,7 @@ void MDCache::check_memory_usage()
   // now, free any unused pool memory so that our memory usage isn't
   // permanently bloated.
   if (exceeded_size_limit
-      && get_num_inodes() <=
+      && CInode::count() <=
         g_conf->mds_cache_size * g_conf->mds_health_cache_threshold) {
     // Only do this once we are back in bounds: otherwise the releases would
     // slow down whatever process caused us to exceed bounds to begin with
@@ -7601,7 +7601,7 @@ bool MDCache::shutdown_pass()
     show_cache();
     //dump();
     return false;
-  } 
+  }
   
   // done!
   dout(2) << "shutdown done." << dendl;
@@ -7625,8 +7625,6 @@ bool MDCache::shutdown_export_strays()
     strays[i]->get_dirfrags(dfs);
   }
 
-  stray_manager.abort_queue();
-  
   for (std::list<CDir*>::iterator dfs_i = dfs.begin();
        dfs_i != dfs.end(); ++dfs_i)
   {
@@ -11615,7 +11613,7 @@ void MDCache::force_readonly()
     return;
 
   dout(1) << "force file system read-only" << dendl;
-  mds->clog->warn() << "force file system read-only\n";
+  mds->clog->warn() << "force file system read-only";
 
   set_readonly();
 
@@ -12304,14 +12302,15 @@ void MDCache::register_perfcounters()
     /* Stray/purge statistics */
     pcb.add_u64(l_mdc_num_strays, "num_strays",
         "Stray dentries", "stry");
-    pcb.add_u64(l_mdc_num_strays_purging, "num_strays_purging", "Stray dentries purging");
     pcb.add_u64(l_mdc_num_strays_delayed, "num_strays_delayed", "Stray dentries delayed");
-    pcb.add_u64(l_mdc_num_purge_ops, "num_purge_ops", "Purge operations");
+    pcb.add_u64(l_mdc_num_strays_enqueuing, "num_strays_enqueuing", "Stray dentries enqueuing for purge");
+
     pcb.add_u64_counter(l_mdc_strays_created, "strays_created", "Stray dentries created");
-    pcb.add_u64_counter(l_mdc_strays_purged, "strays_purged",
-        "Stray dentries purged", "purg");
+    pcb.add_u64_counter(l_mdc_strays_enqueued, "strays_enqueued",
+        "Stray dentries enqueued for purge");
     pcb.add_u64_counter(l_mdc_strays_reintegrated, "strays_reintegrated", "Stray dentries reintegrated");
     pcb.add_u64_counter(l_mdc_strays_migrated, "strays_migrated", "Stray dentries migrated");
+
 
     /* Recovery queue statistics */
     pcb.add_u64(l_mdc_num_recovering_processing, "num_recovering_processing", "Files currently being recovered");
@@ -12358,23 +12357,3 @@ void MDCache::maybe_eval_stray(CInode *in, bool delay) {
   }
 }
 
-void MDCache::notify_mdsmap_changed()
-{
-  stray_manager.update_op_limit();
-}
-
-void MDCache::notify_osdmap_changed()
-{
-  stray_manager.update_op_limit();
-}
-
-void MDCache::handle_conf_change(const struct md_config_t *conf,
-			     const std::set <std::string> &changed)
-{
-  assert(mds->mds_lock.is_locked_by_me());
-
-  if (changed.count("mds_max_purge_ops")
-      || changed.count("mds_max_purge_ops_per_pg")) {
-    stray_manager.update_op_limit();
-  }
-}

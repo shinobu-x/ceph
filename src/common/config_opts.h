@@ -277,7 +277,7 @@ OPTION(mon_osd_auto_mark_new_in, OPT_BOOL, true)      // mark booting new osds '
 OPTION(mon_osd_down_out_interval, OPT_INT, 600) // seconds
 OPTION(mon_osd_down_out_subtree_limit, OPT_STR, "rack")   // smallest crush unit/type that we will not automatically mark out
 OPTION(mon_osd_min_up_ratio, OPT_DOUBLE, .3)    // min osds required to be up to mark things down
-OPTION(mon_osd_min_in_ratio, OPT_DOUBLE, .3)   // min osds required to be in to mark things out
+OPTION(mon_osd_min_in_ratio, OPT_DOUBLE, .75)   // min osds required to be in to mark things out
 OPTION(mon_osd_max_op_age, OPT_DOUBLE, 32)     // max op age before we get concerned (make it a power of 2)
 OPTION(mon_osd_max_split_count, OPT_INT, 32) // largest number of PGs per "involved" OSD to let split create
 OPTION(mon_osd_allow_primary_temp, OPT_BOOL, false)  // allow primary_temp to be set in the osdmap
@@ -318,6 +318,7 @@ OPTION(mon_crush_min_required_version, OPT_STR, "firefly")
 OPTION(mon_warn_on_crush_straw_calc_version_zero, OPT_BOOL, true) // warn if crush straw_calc_version==0
 OPTION(mon_warn_on_osd_down_out_interval_zero, OPT_BOOL, true) // warn if 'mon_osd_down_out_interval == 0'
 OPTION(mon_warn_on_cache_pools_without_hit_sets, OPT_BOOL, true)
+OPTION(mon_warn_osd_usage_percent, OPT_FLOAT, .40) // warn if difference in usage percent between OSDs exceeds specified percent
 OPTION(mon_min_osdmap_epochs, OPT_INT, 500)
 OPTION(mon_max_pgmap_epochs, OPT_INT, 500)
 OPTION(mon_max_log_epochs, OPT_INT, 500)
@@ -485,14 +486,13 @@ OPTION(journaler_allow_split_entries, OPT_BOOL, true)
 OPTION(journaler_write_head_interval, OPT_INT, 15)
 OPTION(journaler_prefetch_periods, OPT_INT, 10)   // * journal object size
 OPTION(journaler_prezero_periods, OPT_INT, 5)     // * journal object size
-OPTION(journaler_batch_interval, OPT_DOUBLE, .001)   // seconds.. max add latency we artificially incur
-OPTION(journaler_batch_max, OPT_U64, 0)  // max bytes we'll delay flushing; disable, for now....
 OPTION(mds_data, OPT_STR, "/var/lib/ceph/mds/$cluster-$id")
 OPTION(mds_max_file_size, OPT_U64, 1ULL << 40) // Used when creating new CephFS. Change with 'ceph mds set max_file_size <size>' afterwards
 OPTION(mds_cache_size, OPT_INT, 100000)
 OPTION(mds_cache_mid, OPT_FLOAT, .7)
 OPTION(mds_max_file_recover, OPT_U32, 32)
 OPTION(mds_dir_max_commit_size, OPT_INT, 10) // MB
+OPTION(mds_dir_keys_per_op, OPT_INT, 16384)
 OPTION(mds_decay_halflife, OPT_FLOAT, 5)
 OPTION(mds_beacon_interval, OPT_FLOAT, 4)
 OPTION(mds_beacon_grace, OPT_FLOAT, 15)
@@ -601,6 +601,8 @@ OPTION(mds_max_purge_files, OPT_U32, 64)
 OPTION(mds_max_purge_ops, OPT_U32, 8192)
 // Maximum number of concurrent RADOS ops to issue in purging, scaled by PG count
 OPTION(mds_max_purge_ops_per_pg, OPT_FLOAT, 0.5)
+
+OPTION(mds_purge_queue_busy_flush_period, OPT_FLOAT, 1.0)
 
 OPTION(mds_root_ino_uid, OPT_INT, 0) // The UID of / on new filesystems
 OPTION(mds_root_ino_gid, OPT_INT, 0) // The GID of / on new filesystems
@@ -874,7 +876,6 @@ OPTION(osd_op_history_size, OPT_U32, 20)    // Max number of completed ops to tr
 OPTION(osd_op_history_duration, OPT_U32, 600) // Oldest completed op to track
 OPTION(osd_target_transaction_size, OPT_INT, 30)     // to adjust various transactions that batch smaller items
 OPTION(osd_failsafe_full_ratio, OPT_FLOAT, .97) // what % full makes an OSD "full" (failsafe)
-OPTION(osd_failsafe_nearfull_ratio, OPT_FLOAT, .90) // what % full makes an OSD near full (failsafe)
 OPTION(osd_fast_fail_on_connection_refused, OPT_BOOL, true) // immediately mark OSDs as down once they refuse to accept connections
 
 OPTION(osd_pg_object_context_cache_count, OPT_INT, 64)
@@ -1030,6 +1031,9 @@ OPTION(bluestore_bluefs_reclaim_ratio, OPT_FLOAT, .20) // how much to reclaim at
 OPTION(bluestore_spdk_socket_mem, OPT_STR, "512,512")
 // A hexadecimal bit mask of the cores to run on. Note the core numbering can change between platforms and should be determined beforehand.
 OPTION(bluestore_spdk_coremask, OPT_STR, "0x3")
+// Specify the maximal I/Os to be batched completed while checking queue pair completions.
+// Default value 0 means that let SPDK nvme library determine the value.
+OPTION(bluestore_spdk_max_io_completion, OPT_U32, 0)
 OPTION(bluestore_block_path, OPT_STR, "")
 OPTION(bluestore_block_size, OPT_U64, 10 * 1024*1024*1024)  // 10gb for testing
 OPTION(bluestore_block_create, OPT_BOOL, true)
@@ -1047,6 +1051,9 @@ OPTION(bluestore_min_alloc_size, OPT_U32, 0)
 OPTION(bluestore_min_alloc_size_hdd, OPT_U32, 64*1024)
 OPTION(bluestore_min_alloc_size_ssd, OPT_U32, 4*1024)
 OPTION(bluestore_max_alloc_size, OPT_U32, 0)
+OPTION(bluestore_prefer_wal_size, OPT_U32, 0)
+OPTION(bluestore_prefer_wal_size_hdd, OPT_U32, 32768)
+OPTION(bluestore_prefer_wal_size_ssd, OPT_U32, 0)
 OPTION(bluestore_compression_mode, OPT_STR, "none")  // force|aggressive|passive|none
 OPTION(bluestore_compression_algorithm, OPT_STR, "snappy")
 OPTION(bluestore_compression_min_blob_size, OPT_U32, 128*1024)
