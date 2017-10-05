@@ -1518,7 +1518,7 @@ void Pipe::fault(bool onread)
   requeue_sent();
 
   if (policy.standby && !is_queued()) {
-    ldout(msgr->cct,0) << "fault with nothing to send, going to standby" << dendl;
+    ldout(msgr->cct,10) << "fault with nothing to send, going to standby" << dendl;
     state = STATE_STANDBY;
     return;
   }
