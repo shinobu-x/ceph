@@ -7297,16 +7297,22 @@ boost::statechart::result PG::RecoveryState::Active::react(const ActMap&)
     pg->check_log_for_corruption(pg->osd->store);
 
   uint64_t unfound = pg->missing_loc.num_unfound();
+
+  auto unfound_lost =
+    pg->cct->_conf->get_val<bool>("osd_auto_mark_unfound_lost");
+
   if (unfound > 0 &&
       pg->all_unfound_are_queried_or_lost(pg->get_osdmap())) {
-    if (pg->cct->_conf->osd_auto_mark_unfound_lost) {
+
+    if (unfound_lost) {
       pg->osd->clog->error() << pg->info.pgid.pgid << " has " << unfound
-			    << " objects unfound and apparently lost, would automatically "
-			    << "mark these objects lost but this feature is not yet implemented "
-			    << "(osd_auto_mark_unfound_lost)";
+        << " objects unfound and apparently lost, would automatically "
+        << "mark these objects lost but this feature is not yet implemented "
+        << "(osd_auto_mark_unfound_lost)";
+
     } else
       pg->osd->clog->error() << pg->info.pgid.pgid << " has "
-                             << unfound << " objects unfound and apparently lost";
+        << unfound << " objects unfound and apparently lost";
   }
 
   if (pg->is_active()) {
