@@ -6061,6 +6061,9 @@ void OSD::do_command(Connection *con, ceph_tid_t tid, vector<string>& cmd, buffe
     }
     osd_lock.Lock();
   }
+  else if (prefix == "config reset") {
+
+  }
   else if (prefix == "cluster_log") {
     vector<string> msg;
     cmd_getval(cct, cmdmap, "message", msg);

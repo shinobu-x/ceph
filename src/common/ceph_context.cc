@@ -459,6 +459,8 @@ void CephContext::do_command(std::string command, cmdmap_t& cmdmap,
 	    f->dump_string(var.c_str(), buf);
 	}
       }
+    } else if (command == "config reset") {
+
     } else if (command == "config help") {
       std::string var;
       if (cmd_getval(this, cmdmap, "var", var)) {
@@ -620,6 +622,7 @@ CephContext::CephContext(uint32_t module_type_,
   _admin_socket->register_command("config help", "config help name=var,type=CephString,req=false", _admin_hook, "get config setting schema and descriptions");
   _admin_socket->register_command("config set", "config set name=var,type=CephString name=val,type=CephString,n=N",  _admin_hook, "config set <field> <val> [<val> ...]: set a config variable");
   _admin_socket->register_command("config get", "config get name=var,type=CephString", _admin_hook, "config get <field>: get the config value");
+  _admin_socket->register_command("config reset", "config reset name=var, type=CephString", _admin_hook, "config reset <field>: rest the config value");
   _admin_socket->register_command("config diff",
       "config diff", _admin_hook,
       "dump diff of current config and default config");
@@ -666,6 +669,7 @@ CephContext::~CephContext()
   _admin_socket->unregister_command("config show");
   _admin_socket->unregister_command("config set");
   _admin_socket->unregister_command("config get");
+  _admin_socket->unregister_command("config reset");
   _admin_socket->unregister_command("config help");
   _admin_socket->unregister_command("config diff");
   _admin_socket->unregister_command("config diff get");
