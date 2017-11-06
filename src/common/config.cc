@@ -871,6 +871,24 @@ int md_config_t::get_val(const std::string &key, char **buf, int len) const
   return _get_val(key, buf,len);
 }
 
+template<typename T>
+void md_config_t::get_val(const std::string& key, T& value) {
+  Mutex::Locker l(lock);
+
+  std::string normalized_key(ConfFile::normalize_key_name(key));
+  auto& config_value = _get_val_generic(normalized_key.c_str());
+  if (!boost::get<boost::blank>(&config_value)) {
+    std::ostringstream oss;
+    if (auto* flag = boost::get<bool>(&config_value))
+      oss << (*flag ? "true" : "false");
+    else if (auto* dp = boost::get<bool>(&config_value))
+      oss << std::fixed << *dp;
+    else
+      value = oss.str();
+  }
+
+}
+
 const Option::value_t&
 md_config_t::get_val_generic(const std::string &key) const
 {

@@ -162,6 +162,7 @@ public:
   int _get_val(const std::string &key, char **buf, int len) const;
   const Option::value_t& get_val_generic(const std::string &key) const;
   template<typename T> const T& get_val(const std::string &key) const;
+  template<typename T> void get_val(const std::string& key, T& value);
 
   void get_all_keys(std::vector<std::string> *keys) const;
 
