@@ -2589,6 +2589,16 @@ static int rados_tool_common(const std::map < std::string, std::string > &opts,
     } else {
       ret = 0;
     }
+  } else if (strcmp(nargs[0], "clearomap") == 0) {
+    if (!pool_name || nargs.size() < 2) {
+      usage_exit();
+    }
+    for (unsigned i = 1; i < nargs.size(); ++i) {
+      std::string oid(nargs[i]);
+      ret = io_ctx.omap_clear(oid);
+      if (ret < 0)
+        cerr << "say somethign..." << cpp_strerror(ret) << '\n';
+    }
   } else if (strcmp(nargs[0], "listomapvals") == 0) {
     if (!pool_name || nargs.size() < 2)
       usage_exit();
