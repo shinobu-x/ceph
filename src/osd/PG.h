@@ -2869,6 +2869,9 @@ protected:
   virtual void check_blacklisted_watchers() = 0;
 
   friend ostream& operator<<(ostream& out, const PG& pg);
+
+protected:
+  void mark_all_unfound_lost(int who, ConnectionRef con, ceph_tid_t tid);
 };
 
 

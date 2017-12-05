@@ -8519,3 +8519,6 @@ void PG::pg_remove_object(const ghobject_t& oid, ObjectStore::Transaction *t)
   }
   t->remove(coll, oid);
 }
+
+void PG::mark_all_unfound_lost(int who, ConnectionRef con, ceph_tid_t tid) {
+}
