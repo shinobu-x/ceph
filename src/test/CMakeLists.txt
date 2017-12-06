@@ -7,6 +7,7 @@ add_library(unit-main OBJECT unit.cc)
 set_source_files_properties(unit.cc PROPERTIES
   COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
 
+add_subdirectory(sk)
 add_subdirectory(bench)
 add_subdirectory(cls_hello)
 add_subdirectory(cls_lock)
