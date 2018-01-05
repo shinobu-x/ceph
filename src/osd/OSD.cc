@@ -1369,6 +1369,12 @@ bool OSDService::prepare_to_stop()
        (get_state() != STOPPING)) {
       is_stopping_cond.WaitUntil(is_stopping_lock, timeout);
     }
+
+    if (ceph_clock_now() >= timeout &&
+        get_state() != STOPPING) {
+      dout(0) << __func__ << " osd_mon_shutdown_timeout exceeded but "
+              << "osd state is not stopping" << dendl;
+    } 
   }
   dout(0) << __func__ << " starting shutdown" << dendl;
   set_state(STOPPING);
