@@ -4935,9 +4935,9 @@ void OSD::heartbeat()
 
   logger->set(l_osd_hb_to, heartbeat_peers.size());
 
-  // hmm.. am i all alone?
-  dout(30) << "heartbeat lonely?" << dendl;
   if (heartbeat_peers.empty()) {
+    // hmm.. am i all alone?
+    dout(30) << "heartbeat lonely?" << dendl;
     if (now - last_mon_heartbeat > cct->_conf->osd_mon_heartbeat_interval && is_active()) {
       last_mon_heartbeat = now;
       dout(10) << "i have no heartbeat peers; checking mon for new map" << dendl;
