@@ -302,7 +302,8 @@ OSDService::~OSDService()
 
 #ifdef PG_DEBUG_REFS
 void OSDService::add_pgid(spg_t pgid, PG *pg){
-  Mutex::Locker l(pgid_lock);
+//  Mutex::Locker l(pgid_lock);
+  std::lock_guard<std::mutex> lock(mutex);
   if (!pgid_tracker.count(pgid)) {
     live_pgs[pgid] = pg;
   }

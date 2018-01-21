@@ -43,6 +43,7 @@
 #include "osd/OpQueueItem.h"
 
 #include <atomic>
+#include <mutex>
 #include <map>
 #include <memory>
 #include "include/memory.h"
@@ -1112,6 +1113,8 @@ class OSD : public Dispatcher,
   // Tick timer for those stuff that do not need osd_lock
   Mutex tick_timer_lock;
   SafeTimer tick_timer_without_osd_lock;
+
+  std::mutex mutex;
 public:
   // config observer bits
   const char** get_tracked_conf_keys() const override;
